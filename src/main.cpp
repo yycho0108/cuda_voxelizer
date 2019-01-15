@@ -17,6 +17,7 @@
 #include "util_cuda.h"
 #include "util_common.h"
 #include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 
 // Forward declaration of CUDA calls
 void voxelize(float* triangles, const voxinfo& v, unsigned int* vtable, bool useMallocManaged, bool morton_code);
@@ -69,6 +70,10 @@ void trianglesToMemory(const trimesh::TriMesh *mesh, float* triangles){
 		memcpy((triangles) + j + 3, &v1, 3 * sizeof(float));
 		memcpy((triangles) + j + 6, &v2, 3 * sizeof(float));
 	}
+	//// Malloc triangle memory and copy triangle data
+	float* dev_triangle_data;
+	checkCudaErrors(cudaMalloc(&dev_triangle_data, mesh->faces.size() * 9 * sizeof(float)));
+	checkCudaErrors(cudaMemcpy(dev_triangle_data, (void*) triangles, mesh->faces.size() * sizeof(float), cudaMemcpyDefault));
 }
 
 // tinyobj loader path (not available yet)
@@ -155,6 +160,8 @@ int main(int argc, char *argv[]) {
 	checkCudaRequirements();
 
 	thrust::host_vector<int> test;
+	test.push_back(1);
+	thrust::device_vector<int> s = test;
 
 	fflush(stdout);
 	trimesh::TriMesh::set_verbose(false);

@@ -209,7 +209,6 @@ void voxelize(float* triangle_data, const voxinfo& v , unsigned int* vtable, boo
 	
 	}
 	thrust::device_vector<float> trianglethrust = trianglethrust_host;
-	trianglethrust_host.push_back(1);
 
 	// Create timers, set start time
 	cudaEvent_t start_total, stop_total, start_vox, stop_vox;

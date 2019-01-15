@@ -7,6 +7,7 @@
 #include <iostream>
 #include "util_cuda.h"
 #include "util_common.h"
+#include <thrust/device_vector.h>
 
 // CUDA Global Memory variables
 //__device__ size_t voxel_count = 0; // How many voxels did we count
@@ -194,14 +195,22 @@ __global__ void voxelize_triangle(voxinfo info, float* triangle_data, unsigned i
 	}
 }
 
-void voxelize(const voxinfo& v, float* triangle_data, unsigned int* vtable, bool useMallocManaged, bool morton_code) {
+void voxelize(float* triangle_data, const voxinfo& v , unsigned int* vtable, bool useMallocManaged, bool morton_code) {
 	float   elapsedTime;
 
 	// These are only used when we're not using UNIFIED memory
 	float* dev_triangle_data; // DEVICE pointer to triangle data
 	unsigned int* dev_vtable; // DEVICE pointer to voxel_data
 	size_t vtable_size; // vtable size
+
+	thrust::host_vector<float> trianglethrust_host;
+	for (size_t i = 0; i < v.n_triangles*9; i++) {
+		trianglethrust_host.push_back(triangle_data[i]);
 	
+	}
+	thrust::device_vector<float> trianglethrust = trianglethrust_host;
+	trianglethrust_host.push_back(1);
+
 	// Create timers, set start time
 	cudaEvent_t start_total, stop_total, start_vox, stop_vox;
 	checkCudaErrors(cudaEventCreate(&start_total));
@@ -226,15 +235,16 @@ void voxelize(const voxinfo& v, float* triangle_data, unsigned int* vtable, bool
 	gridSize = (v.n_triangles + blockSize - 1) / blockSize;
 
 	if (!useMallocManaged) { // We're not using UNIFIED memory
-		// Malloc triangle memory and copy triangle data
-		checkCudaErrors(cudaMalloc(&dev_triangle_data, v.n_triangles * 9 * sizeof(float)));
-		checkCudaErrors(cudaMemcpy(dev_triangle_data, (void*)triangle_data, v.n_triangles * 9 * sizeof(float), cudaMemcpyDefault));
+		//// Malloc triangle memory and copy triangle data
+		//checkCudaErrors(cudaMalloc(&dev_triangle_data, v.n_triangles * 9 * sizeof(float)));
+		//checkCudaErrors(cudaMemcpy(dev_triangle_data, (void*)triangle_data, v.n_triangles * 9 * sizeof(float), cudaMemcpyDefault));
 		// Malloc voxelisation table
 		vtable_size = ((size_t)v.gridsize * v.gridsize * v.gridsize) / (size_t) 8.0;
 		checkCudaErrors(cudaMalloc(&dev_vtable, vtable_size));
 		checkCudaErrors(cudaMemset(dev_vtable, 0, vtable_size));
 		// Start voxelization
 		checkCudaErrors(cudaEventRecord(start_vox, 0));
+		dev_triangle_data = (float*) thrust::raw_pointer_cast(&(trianglethrust[0]));
 		voxelize_triangle << <gridSize, blockSize >> > (v, dev_triangle_data, dev_vtable, morton_code);
 	}
 	else { // UNIFIED MEMORY 
@@ -251,8 +261,8 @@ void voxelize(const voxinfo& v, float* triangle_data, unsigned int* vtable, bool
 	// If we're not using UNIFIED memory, copy the voxel table back and free all
 	if (!useMallocManaged){
 		checkCudaErrors(cudaMemcpy((void*)vtable, dev_vtable, vtable_size, cudaMemcpyDefault));
-		checkCudaErrors(cudaFree(dev_triangle_data));
-		checkCudaErrors(cudaFree(dev_vtable));
+	//	checkCudaErrors(cudaFree(dev_triangle_data));
+		//checkCudaErrors(cudaFree(dev_vtable));
 	}
 
 	// SANITY CHECKS
@@ -273,4 +283,5 @@ void voxelize(const voxinfo& v, float* triangle_data, unsigned int* vtable, bool
 	checkCudaErrors(cudaEventDestroy(stop_total));
 	checkCudaErrors(cudaEventDestroy(start_vox));
 	checkCudaErrors(cudaEventDestroy(stop_vox));
+	trianglethrust.clear();
 }

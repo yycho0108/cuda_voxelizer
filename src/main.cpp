@@ -16,9 +16,10 @@
 #include "util_io.h"
 #include "util_cuda.h"
 #include "util_common.h"
+#include <thrust/host_vector.h>
 
 // Forward declaration of CUDA calls
-extern void voxelize(const voxinfo & v, float* triangle_data, unsigned int* vtable, bool useMallocManaged, bool morton_code);
+void voxelize(float* triangles, const voxinfo& v, unsigned int* vtable, bool useMallocManaged, bool morton_code);
 
 using namespace std;
 
@@ -153,6 +154,8 @@ int main(int argc, char *argv[]) {
 	fprintf(stdout, "\n## CUDA INIT \n");
 	checkCudaRequirements();
 
+	thrust::host_vector<int> test;
+
 	fflush(stdout);
 	trimesh::TriMesh::set_verbose(false);
 #ifdef _DEBUG
@@ -197,7 +200,7 @@ int main(int argc, char *argv[]) {
 		checkCudaErrors(cudaHostAlloc((void **)&vtable, vtable_size, cudaHostAllocDefault));
 	}
 	fprintf(stdout, "\n## GPU VOXELISATION \n");
-	voxelize(v, triangles, vtable, useMallocManaged, (outputformat == output_morton));
+	voxelize(triangles,v, vtable, useMallocManaged, (outputformat == output_morton));
 
 	if (outputformat == output_morton){
 		fprintf(stdout, "\n## OUTPUT TO BINARY FILE \n");

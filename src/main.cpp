@@ -40,6 +40,7 @@ unsigned int gridsize = 256;
 bool useThrustPath = false;
 bool forceCPU = false;
 bool solidVoxelization = false;
+string output_filename = "";
 
 void printHeader(){
 	fprintf(stdout, "## CUDA VOXELIZER \n");
@@ -147,6 +148,10 @@ void parseProgramParameters(int argc, char* argv[]){
 				fprintf(stdout, "[Err] Unrecognized output format: %s, valid options are binvox (default), morton, obj or obj_points \n", output.c_str());
 				exit(1);
 			}
+			++i;
+		} else if (string(argv[i]) == "-x") {
+			output_filename = argv[i+1];
+			++i;
 		}
 		else if (string(argv[i]) == "-thrust") {
 			useThrustPath = true;
@@ -267,7 +272,12 @@ int main(int argc, char* argv[]) {
 	if (outputformat == OutputFormat::output_morton){
 		write_binary(vtable, vtable_size, filename);
 	} else if (outputformat == OutputFormat::output_binvox){
-		write_binvox(vtable, voxelization_info, filename);
+		if(output_filename.empty()){
+			std::string basename = filename.substr(
+					filename.find_last_of('/') + 1);
+			output_filename = "/tmp/" +  basename;
+		}
+		write_binvox(vtable, voxelization_info, output_filename);
 	}
 	else if (outputformat == OutputFormat::output_obj_points) {
 		write_obj_pointcloud(vtable, voxelization_info, filename);
